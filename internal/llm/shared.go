@@ -39,7 +39,7 @@ func BuildCommitPrompt(content, readme string, isFileSummary bool, commitConfig 
 		"Be as specific as possible within the given constraints; saying 'change maximum character limit to 72' is better than 'update commit message rules'. " +
 		"You may optionally include an extended description of the changes, ONLY if the changes are large or complex. Focus on the changes themselves; do not explain why you chose the type you did.\n\n")
 
-	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): summary line\n\noptional description\n\n")
+	prompt.WriteString("REQUIRED FORMAT:\ntype: summary line\n\noptional description\n\n")
 
 	prompt.WriteString("VALID TYPES:\n")
 	prompt.WriteString("feat - new or improved feature work\n")
@@ -51,9 +51,9 @@ func BuildCommitPrompt(content, readme string, isFileSummary bool, commitConfig 
 	prompt.WriteString("chore - maintenance that is not feature-related or user-facing\n\n")
 
 	prompt.WriteString("GOOD FIRST-LINE EXAMPLES:\n")
-	prompt.WriteString("feat(auth): add JWT token validation\n")
-	prompt.WriteString("fix(parser): handle empty input strings\n")
-	prompt.WriteString("refactor(config): simplify YAML loading\n")
+	prompt.WriteString("feat: add JWT token validation\n")
+	prompt.WriteString("fix: handle empty input strings\n")
+	prompt.WriteString("refactor: simplify YAML loading\n")
 	prompt.WriteString("docs: update installation guide\n\n")
 
 	prompt.WriteString("REQUIREMENTS:\n")
@@ -62,10 +62,7 @@ func BuildCommitPrompt(content, readme string, isFileSummary bool, commitConfig 
 	prompt.WriteString("- No explanations, reasoning, or headings\n")
 	prompt.WriteString("- Output ONLY the commit message\n")
 	prompt.WriteString("- Focus on the most important changes present rather than inconsequential details. Be extremely concise.\n")
-	prompt.WriteString("- Start immediately with 'type(scope):'\n")
-	prompt.WriteString("- SCOPE is not a file path/name, but one or two words summarizing the area of code that was changed. If multiple areas are changed, exclude the scope. Scope should be meaningful to a human knowledgeable about the codebase.\n\n")
-	prompt.WriteString("GOOD SCOPE EXAMPLES: auth, parser, config, tests, api client\n")
-	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n")
+	prompt.WriteString("- Start immediately with 'type:'\n")
 	prompt.WriteString("- If you include an extended description, it must be specific and concise. Do not include excess verbiage like 'note:' or 'these changes relate to...'. Do not prefix it with 'extended description'.\n")
 	prompt.WriteString("- If you do not include an extended description, no additional output is required. DO NOT write 'No extended description'. Your output should only include words that are meaningful to describe the diff itself.\n\n")
 

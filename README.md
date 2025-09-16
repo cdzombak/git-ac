@@ -9,7 +9,7 @@ AI-powered commit message generator for Git repositories.
 ## Features
 
 - **Multiple AI providers**: Ollama (local/private), OpenAI, Anthropic, or any OpenAI-compatible API
-- **Conventional commits**: Follows conventional commit format (type(scope): description)
+- **Conventional commits**: Follows conventional commit format (type: description)
 - **Context-aware**: Includes README.md content for better project understanding
 - **Interactive editing**: Edit generated messages before committing with `-e`
 - **Automatic staging**: Stage all changes before generating with `-a`
@@ -127,11 +127,11 @@ git-ac -a -e
 Generated commit messages follow conventional commit format:
 
 ```
-feat(auth): add JWT token validation
-fix(parser): handle empty input strings
-refactor(config): simplify YAML loading
+feat: add JWT token validation
+fix: handle empty input strings
+refactor: simplify YAML loading
 docs: update installation guide
-chore(deps): update dependencies
+chore: update dependencies
 ```
 
 ## License
