@@ -39,8 +39,11 @@ func transformDiffForLLM(diff string) string {
 		} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
 			// Replace - with REMOVED: (preserve the rest of the line)
 			transformedLines = append(transformedLines, "REMOVED: "+line[1:])
+		} else if strings.HasPrefix(line, " ") && len(line) > 1 {
+			// Context lines (unchanged code) start with space
+			transformedLines = append(transformedLines, "UNCHANGED:"+line)
 		} else {
-			// Keep other lines as-is (headers, context, etc.)
+			// Keep other lines as-is (headers, file markers, etc.)
 			transformedLines = append(transformedLines, line)
 		}
 	}
