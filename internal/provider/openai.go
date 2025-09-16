@@ -213,8 +213,7 @@ func (p *OpenAIProvider) makeRequest(req ChatCompletionRequest) (*ChatCompletion
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-		}
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {
