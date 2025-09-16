@@ -24,15 +24,6 @@ commit:
   # Default: 72
   max_length: 72
 
-  # Whether to include commit body for longer descriptions
-  # Default: true
-  include_body: true
-
-  # Character threshold for using two-stage diff analysis
-  # Large diffs are summarized first, then turned into commit messages
-  # Default: 20000
-  large_diff_threshold: 20000
-
 # Example configurations for different models:
 #
 # For CodeLlama:

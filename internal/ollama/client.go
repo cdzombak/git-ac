@@ -91,7 +91,15 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 }
 
 func (c *Client) isDiffTooLarge(diff string) bool {
-	return len(diff) > c.commitConfig.LargeDiffThreshold
+	// Count words in the diff (split by whitespace)
+	words := strings.Fields(diff)
+	wordCount := len(words)
+
+	// Context window is 4096 tokens, use half as threshold
+	// Rough approximation: 1 word ≈ 1.3 tokens
+	maxWords := (4096 / 2) / 1.3 // ~1575 words
+
+	return wordCount > int(maxWords)
 }
 
 func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, error) {
@@ -314,13 +322,8 @@ func (c *Client) cleanCommitMessage(message string) string {
 			}
 		}
 
-		if !c.commitConfig.IncludeBody {
-			// Take only the first line if body is not allowed
-			cleaned = lines[0]
-		} else {
-			// For multi-line commits, preserve formatting
-			cleaned = strings.Join(lines, "\n")
-		}
+		// Always allow multi-line commits - let the LLM decide
+		cleaned = strings.Join(lines, "\n")
 	}
 
 	return cleaned

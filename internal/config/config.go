@@ -21,9 +21,7 @@ type OllamaConfig struct {
 }
 
 type CommitConfig struct {
-	MaxLength          int  `yaml:"max_length"`
-	IncludeBody        bool `yaml:"include_body"`
-	LargeDiffThreshold int  `yaml:"large_diff_threshold"`
+	MaxLength int `yaml:"max_length"`
 }
 
 func Load() (*Config, error) {
@@ -42,9 +40,7 @@ func Load() (*Config, error) {
 			Timeout: 30 * time.Second,
 		},
 		Commit: CommitConfig{
-			MaxLength:          72,
-			IncludeBody:        true,
-			LargeDiffThreshold: 20000,
+			MaxLength: 72,
 		},
 	}
 
