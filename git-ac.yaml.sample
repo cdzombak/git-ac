@@ -28,6 +28,11 @@ commit:
   # Default: true
   include_body: true
 
+  # Character threshold for using two-stage diff analysis
+  # Large diffs are summarized first, then turned into commit messages
+  # Default: 2000
+  large_diff_threshold: 2000
+
 # Example configurations for different models:
 #
 # For CodeLlama:

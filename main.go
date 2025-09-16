@@ -55,7 +55,7 @@ func run() error {
 	readme := git.GetReadmeContent()
 
 	// Generate commit message using Ollama
-	client := ollama.NewClient(cfg.Ollama)
+	client := ollama.NewClient(cfg.Ollama, cfg.Commit)
 	commitMsg, err := client.GenerateCommitMessage(diff, readme)
 	if err != nil {
 		return fmt.Errorf("failed to generate commit message: %w", err)

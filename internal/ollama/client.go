@@ -9,15 +9,17 @@ import (
 	"time"
 
 	"git-ac/internal/config"
+
 	"github.com/ollama/ollama/api"
 )
 
 type Client struct {
-	client *api.Client
-	config config.OllamaConfig
+	client       *api.Client
+	config       config.OllamaConfig
+	commitConfig config.CommitConfig
 }
 
-func NewClient(cfg config.OllamaConfig) *Client {
+func NewClient(cfg config.OllamaConfig, commitCfg config.CommitConfig) *Client {
 	httpClient := &http.Client{
 		Timeout: cfg.Timeout,
 	}
@@ -30,8 +32,9 @@ func NewClient(cfg config.OllamaConfig) *Client {
 	}
 
 	return &Client{
-		client: client,
-		config: cfg,
+		client:       client,
+		config:       cfg,
+		commitConfig: commitCfg,
 	}
 }
 
@@ -88,8 +91,8 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 }
 
 func (c *Client) isDiffTooLarge(diff string) bool {
-	// Consider a diff "large" if it's over 2000 characters or has many files
-	const maxDirectDiffSize = 2000
+	// Use configurable threshold
+	maxDirectDiffSize := c.commitConfig.LargeDiffThreshold
 	lineCount := strings.Count(diff, "\n")
 	fileCount := strings.Count(diff, "diff --git")
 
@@ -147,8 +150,8 @@ func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string
 	if readme != "" {
 		prompt.WriteString("PROJECT CONTEXT:\n")
 		readmeLines := strings.Split(readme, "\n")
-		if len(readmeLines) > 10 {
-			readmeLines = readmeLines[:10]
+		if len(readmeLines) > 20 {
+			readmeLines = readmeLines[:20]
 			readme = strings.Join(readmeLines, "\n") + "\n... (truncated)"
 		}
 		prompt.WriteString(readme)
@@ -163,6 +166,20 @@ func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string
 }
 
 func (c *Client) generateFromPrompt(prompt string) (string, error) {
+	// Adjust parameters based on config
+	var stopTokens []string
+	var maxTokens int
+
+	if c.commitConfig.IncludeBody {
+		// Allow multi-line commits, more tokens for body
+		stopTokens = []string{"```", "---"} // Stop at code blocks or section dividers
+		maxTokens = 200
+	} else {
+		// Single line commits only
+		stopTokens = []string{"\n\n", "\n"}
+		maxTokens = 100
+	}
+
 	req := &api.GenerateRequest{
 		Model:  c.config.Model,
 		Prompt: prompt,
@@ -171,8 +188,8 @@ func (c *Client) generateFromPrompt(prompt string) (string, error) {
 			"temperature": 0.7,
 			"top_p":       0.9,
 			"num_ctx":     4096,
-			"num_predict": 100,
-			"stop":        []string{"\n\n"},
+			"num_predict": maxTokens,
+			"stop":        stopTokens,
 		},
 	}
 
@@ -220,17 +237,34 @@ func (c *Client) buildPrompt(diff, readme string) string {
 	prompt.WriteString("Generate a Git commit message in conventional commit format.\n\n")
 
 	prompt.WriteString("FORMAT: type(scope): description\n")
+	if c.commitConfig.IncludeBody {
+		prompt.WriteString("Include a body if needed for complex changes.\n")
+		prompt.WriteString("Separate subject and body with a blank line.\n")
+	}
 	prompt.WriteString("TYPES: feat, fix, refactor, docs, style, test, chore\n")
-	prompt.WriteString("EXAMPLES:\n")
-	prompt.WriteString("- feat(auth): add JWT token validation\n")
-	prompt.WriteString("- fix(parser): handle empty input strings\n")
-	prompt.WriteString("- refactor(client): improve error handling\n")
-	prompt.WriteString("- docs: update installation instructions\n\n")
+
+	if c.commitConfig.IncludeBody {
+		prompt.WriteString("EXAMPLES:\n")
+		prompt.WriteString("feat(auth): add JWT token validation\n\n")
+		prompt.WriteString("Implement middleware for validating JWT tokens\nAdd error handling for expired tokens\n\n")
+		prompt.WriteString("OR for simple changes:\n")
+		prompt.WriteString("fix(parser): handle empty input strings\n\n")
+	} else {
+		prompt.WriteString("EXAMPLES:\n")
+		prompt.WriteString("- feat(auth): add JWT token validation\n")
+		prompt.WriteString("- fix(parser): handle empty input strings\n")
+		prompt.WriteString("- refactor(client): improve error handling\n")
+		prompt.WriteString("- docs: update installation instructions\n\n")
+	}
 
 	prompt.WriteString("RULES:\n")
-	prompt.WriteString("- Under 72 characters\n")
+	prompt.WriteString("- Subject line under 72 characters\n")
 	prompt.WriteString("- Use present tense\n")
 	prompt.WriteString("- Be specific but concise\n")
+	if c.commitConfig.IncludeBody {
+		prompt.WriteString("- Add body for complex changes\n")
+		prompt.WriteString("- Wrap body lines at 72 characters\n")
+	}
 	prompt.WriteString("- Output ONLY the commit message\n\n")
 
 	if readme != "" {
@@ -302,10 +336,29 @@ func (c *Client) cleanCommitMessage(message string) string {
 	cleaned = strings.TrimSuffix(cleaned, "```")
 	cleaned = strings.TrimSpace(cleaned)
 
-	// Take only the first line if multiple lines (commit subject should be one line)
-	lines := strings.Split(cleaned, "\n")
-	if len(lines) > 0 {
-		cleaned = strings.TrimSpace(lines[0])
+	// Handle multi-line commits based on config
+	if !c.commitConfig.IncludeBody {
+		// Take only the first line if body is not allowed
+		lines := strings.Split(cleaned, "\n")
+		if len(lines) > 0 {
+			cleaned = strings.TrimSpace(lines[0])
+		}
+	} else {
+		// For multi-line commits, ensure proper formatting
+		lines := strings.Split(cleaned, "\n")
+		if len(lines) > 0 {
+			// Ensure subject line is under max length
+			subject := strings.TrimSpace(lines[0])
+			if c.commitConfig.MaxLength > 0 && len(subject) > c.commitConfig.MaxLength {
+				if spaceIdx := strings.LastIndex(subject[:c.commitConfig.MaxLength], " "); spaceIdx > 0 {
+					subject = subject[:spaceIdx]
+				} else {
+					subject = subject[:c.commitConfig.MaxLength]
+				}
+				lines[0] = subject
+			}
+			cleaned = strings.Join(lines, "\n")
+		}
 	}
 
 	return cleaned
