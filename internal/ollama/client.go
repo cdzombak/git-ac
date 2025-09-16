@@ -128,6 +128,7 @@ OUTPUT:`, diff)
 		Model:  c.config.Model,
 		Prompt: prompt,
 		Stream: new(bool),
+		Context: nil, // Explicitly clear context to prevent cross-invocation contamination
 		Options: map[string]interface{}{
 			"temperature": 0.3, // Lower temperature for more focused analysis
 			"top_p":       0.8,
@@ -150,6 +151,7 @@ func (c *Client) generateFromPrompt(prompt string) (string, error) {
 		Model:  c.config.Model,
 		Prompt: prompt,
 		Stream: new(bool),
+		Context: nil, // Explicitly clear context to prevent cross-invocation contamination
 		Options: map[string]interface{}{
 			"temperature": 0.7,
 			"top_p":       0.9,
