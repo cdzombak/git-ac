@@ -204,14 +204,16 @@ func (c *Client) buildPrompt(diff, readme string) string {
 func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are a Git commit message generator. Analyze the following changes and output ONLY a conventional commit message Your commit message must summarize the most important and significant changes present. You may optionally include an extended description if the changes are large or complex.\n\n")
+	prompt.WriteString("You are a Git commit message generator. " +
+		"Analyze the following changes and output ONLY a conventional commit message. Your commit message must summarize the most important and significant changes present. " +
+		"You may optionally include an extended description of the changes if the changes are large or complex. Focus on the changes themselves; do not explain why you chose the type you did.\n\n")
 
 	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\noptional extended description\n\n")
 
 	prompt.WriteString("VALID TYPES:\n")
-	prompt.WriteString("feat - new feature\n")
-	prompt.WriteString("fix - bug fix\n")
-	prompt.WriteString("refactor - code refactoring\n")
+	prompt.WriteString("feat - new or improved feature work\n")
+	prompt.WriteString("fix - fixing bugs or shortcomings\n")
+	prompt.WriteString("refactor - internal refactoring that is not user-facing and does not affect program behavior\n")
 	prompt.WriteString("docs - documentation\n")
 	prompt.WriteString("style - formatting\n")
 	prompt.WriteString("test - testing\n")
@@ -224,7 +226,7 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("docs: update installation guide\n\n")
 
 	prompt.WriteString("REQUIREMENTS:\n")
-	prompt.WriteString("- First line under 72 characters\n") // TODO(cdzombak): take from config
+	prompt.WriteString(fmt.Sprintf("- First line of the commit message MUST be extrememly concise and under %d characters\n", c.commitConfig.MaxLength))
 	prompt.WriteString("- Present tense (add, not added)\n")
 	prompt.WriteString("- No explanations or reasoning\n")
 	prompt.WriteString("- Output ONLY the commit message\n")
@@ -268,58 +270,7 @@ func (c *Client) cleanCommitMessage(message string) string {
 		}
 	}
 
-	// Look for commit message in backticks
-	if strings.Contains(cleaned, "`") && strings.Count(cleaned, "`") >= 2 {
-		start := strings.Index(cleaned, "`")
-		end := strings.LastIndex(cleaned, "`")
-		if start != end && start >= 0 && end > start {
-			cleaned = strings.TrimSpace(cleaned[start+1 : end])
-		}
-	}
-
-	// Remove everything after common stopping phrases, but only if they appear after some content
-	stopPhrases := []string{
-		"We are generating",
-		"We have the following",
-		"The purpose of this",
-		"This change",
-		"The changes include",
-		"Summary:",
-		"Changes:",
-		"Analysis:",
-		"This commit message follows",
-		"Note: If you'd like",
-		"Here is a conventional",
-		"The commit message",
-	}
-
-	for _, phrase := range stopPhrases {
-		if idx := strings.Index(cleaned, phrase); idx > 10 { // Only cut if there's some content before
-			cleaned = strings.TrimSpace(cleaned[:idx])
-		}
-	}
-
-	// Remove common prefixes
-	prefixes := []string{
-		"commit message:",
-		"commit:",
-		"message:",
-		"git commit:",
-		"output:",
-		"```",
-	}
-
 	// Remove thinking patterns
-	thinkingPatterns := []string{
-		"<think>",
-		"</think>",
-	}
-
-	for _, pattern := range thinkingPatterns {
-		cleaned = strings.ReplaceAll(cleaned, pattern, "")
-	}
-
-	// Remove text between <think> tags
 	for strings.Contains(cleaned, "<think>") && strings.Contains(cleaned, "</think>") {
 		start := strings.Index(cleaned, "<think>")
 		end := strings.Index(cleaned, "</think>") + len("</think>")
@@ -330,74 +281,42 @@ func (c *Client) cleanCommitMessage(message string) string {
 		}
 	}
 
+	// Remove remaining thinking tags
+	cleaned = strings.ReplaceAll(cleaned, "<think>", "")
+	cleaned = strings.ReplaceAll(cleaned, "</think>", "")
 	cleaned = strings.TrimSpace(cleaned)
-	lowerCleaned := strings.ToLower(cleaned)
-
-	// Remove prefixes
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(lowerCleaned, prefix) {
-			cleaned = strings.TrimSpace(cleaned[len(prefix):])
-			lowerCleaned = strings.ToLower(cleaned)
-		}
-	}
-
-	// Remove trailing artifacts
-	cleaned = strings.TrimSuffix(cleaned, "```")
-	cleaned = strings.TrimSpace(cleaned)
-
-	// If the message doesn't start with a valid type, try to find the first line that does
-	validTypes := []string{"feat", "fix", "refactor", "docs", "style", "test", "chore"}
-	lines := strings.Split(cleaned, "\n")
-
-	// Check if we already have a valid start
-	firstLine := strings.TrimSpace(lines[0])
-	hasValidStart := false
-	for _, typ := range validTypes {
-		if strings.HasPrefix(firstLine, typ+"(") || strings.HasPrefix(firstLine, typ+":") {
-			hasValidStart = true
-			break
-		}
-	}
-
-	// Only search for valid lines if the first line isn't already valid
-	if !hasValidStart {
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			for _, typ := range validTypes {
-				if strings.HasPrefix(line, typ+"(") || strings.HasPrefix(line, typ+":") {
-					// Found a valid commit message line, use this as starting point
-					if idx := strings.Index(cleaned, line); idx >= 0 {
-						cleaned = cleaned[idx:]
-					}
-					goto processMultiLine
-				}
-			}
-		}
-	}
-
-processMultiLine:
 
 	// Handle multi-line commits based on config
-	if !c.commitConfig.IncludeBody {
-		// Take only the first line if body is not allowed
-		lines := strings.Split(cleaned, "\n")
-		if len(lines) > 0 {
-			cleaned = strings.TrimSpace(lines[0])
-		}
-	} else {
-		// For multi-line commits, ensure proper formatting
-		lines := strings.Split(cleaned, "\n")
-		if len(lines) > 0 {
-			// Ensure subject line is under max length
-			subject := strings.TrimSpace(lines[0])
-			if c.commitConfig.MaxLength > 0 && len(subject) > c.commitConfig.MaxLength {
-				if spaceIdx := strings.LastIndex(subject[:c.commitConfig.MaxLength], " "); spaceIdx > 0 {
-					subject = subject[:spaceIdx]
-				} else {
-					subject = subject[:c.commitConfig.MaxLength]
+	lines := strings.Split(cleaned, "\n")
+	if len(lines) > 0 {
+		// Handle first line length - split with ellipsis if too long, never truncate
+		subject := strings.TrimSpace(lines[0])
+		if c.commitConfig.MaxLength > 0 && len(subject) > c.commitConfig.MaxLength {
+			// Find a good break point
+			maxLen := c.commitConfig.MaxLength - 3 // Reserve space for "..."
+			if spaceIdx := strings.LastIndex(subject[:maxLen], " "); spaceIdx > 0 {
+				// Split at word boundary
+				lines[0] = subject[:spaceIdx] + "..."
+				// Add remainder as new line
+				remainder := strings.TrimSpace(subject[spaceIdx:])
+				if remainder != "" {
+					lines = append([]string{lines[0], remainder}, lines[1:]...)
 				}
-				lines[0] = subject
+			} else {
+				// No good break point, split at character boundary
+				lines[0] = subject[:maxLen] + "..."
+				remainder := subject[maxLen:]
+				if remainder != "" {
+					lines = append([]string{lines[0], remainder}, lines[1:]...)
+				}
 			}
+		}
+
+		if !c.commitConfig.IncludeBody {
+			// Take only the first line if body is not allowed
+			cleaned = lines[0]
+		} else {
+			// For multi-line commits, preserve formatting
 			cleaned = strings.Join(lines, "\n")
 		}
 	}
