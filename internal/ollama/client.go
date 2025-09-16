@@ -207,7 +207,7 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("You are a Git commit message generator. " +
 		"Analyze the following changes and output ONLY a conventional commit message. Your commit message must summarize the most important and significant changes present. " +
 		"Be as specific as possible within the given constraints; saying 'change maximum character limit to 72' is better than 'update commit message rules'. " +
-		"You may optionally include an extended description of the changes if the changes are large or complex. Focus on the changes themselves; do not explain why you chose the type you did.\n\n")
+		"You may optionally include an extended description of the changes, ONLY if the changes are large or complex. Focus on the changes themselves; do not explain why you chose the type you did.\n\n")
 
 	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\noptional extended description\n\n")
 
@@ -237,8 +237,6 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("GOOD SCOPE EXAMPLES: auth, parser, config, tests, api client\n")
 	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n")
 	prompt.WriteString("- If you choose to include an extended description, it should be specific and concise. Do not include excess verbiage like 'note:' or 'these changes relate to...'.\n")
-	prompt.WriteString("GOOD DESCRIPTION EXAMPLE: 'Changes the reserved space for ellipsis from 3 to 1 characters'\n")
-	prompt.WriteString("BAD DESCRIPTION EXAMPLE: 'This change updates the code that truncates commit message subject lines to a specified length, changing the reserved space for ellipsis from 3 to 1 characters. This is done to match the conventional commit message format's requirement of having the ellipsis directly after the truncated text.'\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT README:\n")
