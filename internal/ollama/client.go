@@ -125,9 +125,9 @@ DIFF:
 OUTPUT:`, diff)
 
 	req := &api.GenerateRequest{
-		Model:  c.config.Model,
-		Prompt: prompt,
-		Stream: new(bool),
+		Model:   c.config.Model,
+		Prompt:  prompt,
+		Stream:  new(bool),
 		Context: nil, // Explicitly clear context to prevent cross-invocation contamination
 		Options: map[string]interface{}{
 			"temperature": 0.3, // Lower temperature for more focused analysis
@@ -148,9 +148,9 @@ func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string
 func (c *Client) generateFromPrompt(prompt string) (string, error) {
 	// Remove strict limits for thinking models
 	req := &api.GenerateRequest{
-		Model:  c.config.Model,
-		Prompt: prompt,
-		Stream: new(bool),
+		Model:   c.config.Model,
+		Prompt:  prompt,
+		Stream:  new(bool),
 		Context: nil, // Explicitly clear context to prevent cross-invocation contamination
 		Options: map[string]interface{}{
 			"temperature": 0.7,
@@ -247,6 +247,7 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("GOOD SCOPE EXAMPLES: auth, parser, config, tests, api client\n")
 	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n")
 	prompt.WriteString("- If you include an extended description, it must be specific and concise. Do not include excess verbiage like 'note:' or 'these changes relate to...'. Do not prefix it with 'extended description'.\n")
+	prompt.WriteString("- If you do not include an extended description, no additional output is required. DO NOT write 'No extended description'. Your output should only include words that are meaningful to describe the diff itself.\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT README:\n")
