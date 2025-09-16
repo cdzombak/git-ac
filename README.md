@@ -23,10 +23,40 @@ AI-powered commit message generator using Ollama.
 
 ## Installation
 
+## Debian via apt repository
+
+Set up my `oss` apt repository:
+
+```shell
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://dist.cdzombak.net/keys/dist-cdzombak-net.gpg -o /etc/apt/keyrings/dist-cdzombak-net.gpg
+sudo chmod 644 /etc/apt/keyrings/dist-cdzombak-net.gpg
+sudo mkdir -p /etc/apt/sources.list.d
+sudo curl -fsSL https://dist.cdzombak.net/cdzombak-oss.sources -o /etc/apt/sources.list.d/cdzombak-oss.sources
+sudo chmod 644 /etc/apt/sources.list.d/cdzombak-oss.sources
+sudo apt update
+```
+
+Then install `git-ac` via `apt-get`:
+
+```shell
+sudo apt-get install git-ac
+```
+
+## Homebrew
+
+```shell
+brew install cdzombak/oss/git-ac
+```
+
+## Manual from build artifacts
+
+Pre-built binaries for Linux and macOS on various architectures are downloadable from each [GitHub Release](https://github.com/cdzombak/git-ac/releases). Debian packages for each release are available as well.
+
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/git-ac
+git clone https://github.com/cdzombak/git-ac
 cd git-ac
 go build -o git-ac
 sudo mv git-ac /usr/local/bin/
@@ -35,7 +65,7 @@ sudo mv git-ac /usr/local/bin/
 ### Using Go Install
 
 ```bash
-go install github.com/yourusername/git-ac@latest
+go install github.com/cdzombak/git-ac@latest
 ```
 
 ## Configuration
