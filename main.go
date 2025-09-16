@@ -7,7 +7,7 @@ import (
 
 	"git-ac/internal/config"
 	"git-ac/internal/git"
-	"git-ac/internal/ollama"
+	"git-ac/internal/provider"
 	"git-ac/internal/editor"
 )
 
@@ -65,9 +65,13 @@ func run() error {
 	// Get README.md content for context (if it exists)
 	readme := git.GetReadmeContent()
 
-	// Generate commit message using Ollama
-	client := ollama.NewClient(cfg.Ollama, cfg.Commit)
-	commitMsg, err := client.GenerateCommitMessage(diff, readme)
+	// Generate commit message using configured provider
+	llmProvider, err := provider.NewProvider(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create LLM provider: %w", err)
+	}
+
+	commitMsg, err := llmProvider.GenerateCommitMessage(diff, readme)
 	if err != nil {
 		return fmt.Errorf("failed to generate commit message: %w", err)
 	}
