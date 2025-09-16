@@ -69,8 +69,14 @@ func Commit(message string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		if err := os.Remove(tmpFile.Name()); err != nil {
+		}
+	}()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+		}
+	}()
 
 	if _, err := tmpFile.WriteString(message); err != nil {
 		return fmt.Errorf("failed to write commit message: %w", err)
