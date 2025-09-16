@@ -19,14 +19,12 @@ func Edit(initialContent string) (string, error) {
 		return "", fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil {
-		}
+		_ = os.Remove(tmpFile.Name())
 	}()
 
 	// Write initial content to file
 	if _, err := tmpFile.WriteString(initialContent); err != nil {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-		}
+		_ = tmpFile.Close()
 		return "", fmt.Errorf("failed to write initial content: %w", err)
 	}
 
