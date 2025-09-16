@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -88,32 +89,96 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
+	// Validate provider type
+	if c.Provider.Type == "" {
+		return fmt.Errorf("provider type is required (supported: ollama, openai)")
+	}
+
+	// Validate timeout
+	if c.Provider.Timeout <= 0 {
+		return fmt.Errorf("provider timeout must be positive (got %v)", c.Provider.Timeout)
+	}
+	if c.Provider.Timeout > 10*time.Minute {
+		return fmt.Errorf("provider timeout is too large (got %v, maximum 10m)", c.Provider.Timeout)
+	}
+
+	// Validate commit config
+	if err := c.validateCommitConfig(); err != nil {
+		return fmt.Errorf("commit config validation failed: %w", err)
+	}
+
+	// Validate provider-specific config
 	switch c.Provider.Type {
 	case "ollama":
-		if c.Provider.Ollama == nil {
-			return fmt.Errorf("ollama config required when provider type is 'ollama'")
-		}
-		if c.Provider.Ollama.Host == "" {
-			return fmt.Errorf("ollama host is required")
-		}
-		if c.Provider.Ollama.Model == "" {
-			return fmt.Errorf("ollama model is required")
-		}
+		return c.validateOllamaConfig()
 	case "openai":
-		if c.Provider.OpenAI == nil {
-			return fmt.Errorf("openai config required when provider type is 'openai'")
-		}
-		if c.Provider.OpenAI.BaseURL == "" {
-			return fmt.Errorf("openai base_url is required")
-		}
-		if c.Provider.OpenAI.APIKey == "" {
-			return fmt.Errorf("openai api_key is required")
-		}
-		if c.Provider.OpenAI.Model == "" {
-			return fmt.Errorf("openai model is required")
-		}
+		return c.validateOpenAIConfig()
 	default:
-		return fmt.Errorf("unsupported provider type: %s (supported: ollama, openai)", c.Provider.Type)
+		return fmt.Errorf("unsupported provider type '%s' (supported: ollama, openai)", c.Provider.Type)
+	}
+}
+
+func (c *Config) validateCommitConfig() error {
+	if c.Commit.MaxLength <= 0 {
+		return fmt.Errorf("max_length must be positive (got %d)", c.Commit.MaxLength)
+	}
+	if c.Commit.MaxLength < 20 {
+		return fmt.Errorf("max_length is too small (got %d, minimum 20)", c.Commit.MaxLength)
+	}
+	if c.Commit.MaxLength > 200 {
+		return fmt.Errorf("max_length is too large (got %d, maximum 200)", c.Commit.MaxLength)
+	}
+	return nil
+}
+
+func (c *Config) validateOllamaConfig() error {
+	if c.Provider.Ollama == nil {
+		return fmt.Errorf("ollama config section is required when provider type is 'ollama'")
+	}
+
+	cfg := c.Provider.Ollama
+	if cfg.Host == "" {
+		return fmt.Errorf("ollama host is required")
+	}
+
+	// Validate host URL format
+	if !strings.HasPrefix(cfg.Host, "http://") && !strings.HasPrefix(cfg.Host, "https://") {
+		return fmt.Errorf("ollama host must be a valid URL starting with http:// or https:// (got %q)", cfg.Host)
+	}
+
+	if cfg.Model == "" {
+		return fmt.Errorf("ollama model is required")
+	}
+
+	return nil
+}
+
+func (c *Config) validateOpenAIConfig() error {
+	if c.Provider.OpenAI == nil {
+		return fmt.Errorf("openai config section is required when provider type is 'openai'")
+	}
+
+	cfg := c.Provider.OpenAI
+	if cfg.BaseURL == "" {
+		return fmt.Errorf("openai base_url is required")
+	}
+
+	// Validate base URL format
+	if !strings.HasPrefix(cfg.BaseURL, "http://") && !strings.HasPrefix(cfg.BaseURL, "https://") {
+		return fmt.Errorf("openai base_url must be a valid URL starting with http:// or https:// (got %q)", cfg.BaseURL)
+	}
+
+	if cfg.APIKey == "" {
+		return fmt.Errorf("openai api_key is required")
+	}
+
+	// Basic API key format validation
+	if len(cfg.APIKey) < 10 {
+		return fmt.Errorf("openai api_key appears to be too short (got %d characters)", len(cfg.APIKey))
+	}
+
+	if cfg.Model == "" {
+		return fmt.Errorf("openai model is required")
 	}
 
 	return nil

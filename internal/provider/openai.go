@@ -81,6 +81,15 @@ func (p *OpenAIProvider) HealthCheck() error {
 
 	_, err := p.makeRequest(req)
 	if err != nil {
+		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
+			return fmt.Errorf("cannot connect to OpenAI API at %s - check your network connection and base_url", p.config.BaseURL)
+		}
+		if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "authentication") {
+			return fmt.Errorf("authentication failed - check your API key")
+		}
+		if strings.Contains(err.Error(), "404") {
+			return fmt.Errorf("model '%s' not found - check if the model exists and you have access", p.config.Model)
+		}
 		return fmt.Errorf("health check failed: %w", err)
 	}
 
@@ -195,13 +204,30 @@ func (p *OpenAIProvider) makeRequest(req ChatCompletionRequest) (*ChatCompletion
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
+		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "timeout") {
+			return nil, fmt.Errorf("request timed out after %v - try increasing timeout in config or check if the API is accessible", p.timeout)
+		}
+		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
+			return nil, fmt.Errorf("cannot connect to OpenAI API at %s - check your network connection and base_url", p.config.BaseURL)
+		}
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("authentication failed (401) - check your API key")
+		case 404:
+			return nil, fmt.Errorf("model '%s' not found (404) - check if the model exists and you have access", p.config.Model)
+		case 429:
+			return nil, fmt.Errorf("rate limit exceeded (429) - try again later or increase timeout")
+		case 500, 502, 503, 504:
+			return nil, fmt.Errorf("server error (%d) - the API service may be experiencing issues", resp.StatusCode)
+		default:
+			return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		}
 	}
 
 	var chatResp ChatCompletionResponse
