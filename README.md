@@ -1,29 +1,23 @@
 # git-ac
 
-AI-powered commit message generator using Ollama.
+AI-powered commit message generator for Git repositories.
 
 ## Overview
 
-`git-ac` is a command-line tool that automatically generates commit messages for your staged Git changes using a local Ollama server. It analyzes your git diff and optionally includes your project's README.md for context to create meaningful, conventional commit messages.
+`git-ac` analyzes your staged Git changes and generates conventional commit messages using AI. It supports multiple LLM providers including Ollama (local), OpenAI, Anthropic, and other OpenAI-compatible services.
 
 ## Features
 
-- 🤖 AI-powered commit message generation using Ollama
-- 📝 Conventional commit format
-- ✏️  Optional manual editing with your preferred editor
-- 🔧 Configurable via YAML file
-- 📖 Uses README.md for project context
-- 🚀 Works entirely locally with your Ollama installation
-
-## Prerequisites
-
-- [Ollama](https://ollama.com/) installed and running
-- A language model pulled in Ollama (e.g., `ollama pull llama2`)
-- Go 1.21+ (for building from source)
+- **Multiple AI providers**: Ollama (local/private), OpenAI, Anthropic, or any OpenAI-compatible API
+- **Conventional commits**: Follows conventional commit format (type(scope): description)
+- **Context-aware**: Includes README.md content for better project understanding
+- **Interactive editing**: Edit generated messages before committing with `-e`
+- **Automatic staging**: Stage all changes before generating with `-a`
+- **Smart diff handling**: Two-stage processing for large changesets
 
 ## Installation
 
-## Debian via apt repository
+### Debian via apt repository
 
 Set up my `oss` apt repository:
 
@@ -43,15 +37,27 @@ Then install `git-ac` via `apt-get`:
 sudo apt-get install git-ac
 ```
 
-## Homebrew
+### Homebrew
 
 ```shell
 brew install cdzombak/oss/git-ac
 ```
 
-## Manual from build artifacts
+### Manual from build artifacts
 
 Pre-built binaries for Linux and macOS on various architectures are downloadable from each [GitHub Release](https://github.com/cdzombak/git-ac/releases). Debian packages for each release are available as well.
+
+### Prerequisites
+
+- Go 1.19 or later
+- Git
+- One of: Ollama (local), OpenAI API key, or other compatible API
+
+### Install git-ac
+
+```bash
+go install github.com/cdzombak/git-ac@latest
+```
 
 ### From Source
 
@@ -62,186 +68,111 @@ go build -o git-ac
 sudo mv git-ac /usr/local/bin/
 ```
 
-### Using Go Install
+### Provider Setup
 
+**For Ollama (local/private):**
 ```bash
-go install github.com/cdzombak/git-ac@latest
-```
-
-## Configuration
-
-Create a configuration file at `~/.config/git-ac.yaml`:
-
-```yaml
-ollama:
-  host: "http://localhost:11434"
-  model: "llama2"
-  timeout: 30s
-
-commit:
-  max_length: 72
-  include_body: true
-```
-
-### Configuration Options
-
-#### Ollama Section
-- `host`: Ollama server URL (default: "http://localhost:11434")
-- `model`: Model to use for generation (default: "llama2")
-- `timeout`: Request timeout (default: 30s)
-
-#### Commit Section
-- `max_length`: Maximum commit message length (default: 72)
-- `include_body`: Include commit body in longer messages (default: true)
-
-## Usage
-
-### Basic Usage
-
-Stage your changes and run:
-
-```bash
-git add .
-git-ac
-```
-
-This will:
-1. Analyze your staged changes
-2. Generate a commit message using Ollama
-3. Automatically commit with the generated message
-
-### Edit Before Committing
-
-To review and edit the generated message:
-
-```bash
-git-ac -e
-```
-
-This opens your `$EDITOR` with the proposed commit message, allowing you to modify it before committing.
-
-### Help
-
-```bash
-git-ac -h
-```
-
-## Examples
-
-### Example 1: Adding a new feature
-
-```bash
-$ git add src/auth.go
-$ git-ac
-Successfully committed with message:
-feat(auth): add JWT token validation middleware
-```
-
-### Example 2: Bug fix with manual editing
-
-```bash
-$ git add src/parser.go
-$ git-ac -e
-# Opens editor with: "fix(parser): handle empty input strings"
-# You can edit the message
-Successfully committed with message:
-fix(parser): handle empty input strings to prevent panic
-```
-
-## How It Works
-
-1. **Repository Validation**: Ensures you're in a Git repository
-2. **Staged Changes**: Retrieves `git diff --cached` output
-3. **Context Gathering**: Reads README.md (if present) for project context
-4. **AI Generation**: Sends diff and context to Ollama for commit message generation
-5. **Optional Editing**: Opens editor if `-e` flag is used
-6. **Commit**: Executes `git commit` with the final message
-
-## Prompt Engineering
-
-The tool sends a carefully crafted prompt to Ollama that includes:
-
-- Instructions for conventional commit format
-- Your project's README.md for context
-- The actual git diff of staged changes
-- Requirements for message length and style
-
-## Troubleshooting
-
-### "No staged changes found"
-Make sure you have staged changes:
-```bash
-git add <files>
-git-ac
-```
-
-### "Failed to connect to Ollama"
-Ensure Ollama is running:
-```bash
-ollama serve
-```
-
-### "Model not found"
-Pull the required model:
-```bash
+# Install Ollama from ollama.ai, then:
 ollama pull llama2
 ```
 
-### "Request timed out"
-This can happen with large models. Try:
+**For OpenAI/Anthropic:**
+Get an API key from your provider.
 
-1. **Use a faster model**: Smaller models work better for commit messages:
-   ```bash
-   ollama pull llama2:7b-chat    # Faster than larger models
-   ollama pull mistral:7b        # Good for code tasks
-   ollama pull codellama:7b      # Optimized for code
-   ```
+## Configuration
 
-2. **Increase timeout in config**:
-   ```yaml
-   ollama:
-     timeout: 60s  # Increase from default 30s
-   ```
+Create `~/.config/git-ac.yaml`:
 
-3. **Check model size**: Very large models (>10GB) may be too slow:
-   ```bash
-   ollama list  # Check model sizes
-   ```
+### Ollama (Local)
+```yaml
+provider:
+  type: "ollama"
+  timeout: 60s
+  ollama:
+    host: "http://localhost:11434"
+    model: "llama2"
 
-### "No editor found"
-Set your preferred editor:
-```bash
-export EDITOR=nano
-# or add to your shell profile
-echo 'export EDITOR=nano' >> ~/.bashrc
+commit:
+  max_length: 72
 ```
 
-## Conventional Commit Types
+### OpenAI
+```yaml
+provider:
+  type: "openai"
+  timeout: 30s
+  openai:
+    base_url: "https://api.openai.com/v1"
+    api_key: "sk-your-key-here"
+    model: "gpt-4"
 
-The generated messages follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+commit:
+  max_length: 72
+```
 
-- `feat`: New features
-- `fix`: Bug fixes
-- `docs`: Documentation changes
-- `style`: Code style changes
-- `refactor`: Code refactoring
-- `perf`: Performance improvements
-- `test`: Adding or fixing tests
-- `chore`: Maintenance tasks
+### Anthropic Claude
+```yaml
+provider:
+  type: "openai"
+  timeout: 30s
+  openai:
+    base_url: "https://api.anthropic.com/v1"
+    api_key: "your-anthropic-key"
+    model: "claude-3-sonnet-20240229"
 
-## Contributing
+commit:
+  max_length: 72
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+### Local AI Server (LM Studio, vLLM, etc.)
+```yaml
+provider:
+  type: "openai"
+  timeout: 60s
+  openai:
+    base_url: "http://localhost:1234/v1"
+    api_key: "not-needed"
+    model: "local-model"
+
+commit:
+  max_length: 72
+```
+
+## Usage
+
+```bash
+# Generate and commit
+git add .
+git-ac
+
+# Stage all changes and generate
+git-ac -a
+
+# Edit message before committing
+git-ac -e
+
+# Combine flags
+git-ac -a -e
+```
+
+### Options
+
+- `-a`: Stage modified files (like `git commit -a`)
+- `-e`: Edit message in `$EDITOR` before committing
+- `-h`: Show help
+
+## Examples
+
+Generated commit messages follow conventional commit format:
+
+```
+feat(auth): add JWT token validation
+fix(parser): handle empty input strings
+refactor(config): simplify YAML loading
+docs: update installation guide
+chore(deps): update dependencies
+```
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Related Projects
-
-- [Ollama](https://ollama.com/) - Local language model server
-- [Conventional Commits](https://www.conventionalcommits.org/) - Commit message convention
+MIT License
