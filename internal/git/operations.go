@@ -22,7 +22,30 @@ func GetStagedDiff() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get staged diff: %w", err)
 	}
-	return string(output), nil
+
+	// Transform diff format for better LLM readability
+	diff := string(output)
+	return transformDiffForLLM(diff), nil
+}
+
+func transformDiffForLLM(diff string) string {
+	lines := strings.Split(diff, "\n")
+	var transformedLines []string
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+			// Replace + with ADDED: (preserve the rest of the line)
+			transformedLines = append(transformedLines, "ADDED: "+line[1:])
+		} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			// Replace - with REMOVED: (preserve the rest of the line)
+			transformedLines = append(transformedLines, "REMOVED: "+line[1:])
+		} else {
+			// Keep other lines as-is (headers, context, etc.)
+			transformedLines = append(transformedLines, line)
+		}
+	}
+
+	return strings.Join(transformedLines, "\n")
 }
 
 func GetReadmeContent() string {
