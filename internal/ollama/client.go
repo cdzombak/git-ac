@@ -217,7 +217,7 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 		"Be as specific as possible within the given constraints; saying 'change maximum character limit to 72' is better than 'update commit message rules'. " +
 		"You may optionally include an extended description of the changes, ONLY if the changes are large or complex. Focus on the changes themselves; do not explain why you chose the type you did.\n\n")
 
-	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\noptional extended description\n\n")
+	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): summary line\n\noptional description\n\n")
 
 	prompt.WriteString("VALID TYPES:\n")
 	prompt.WriteString("feat - new or improved feature work\n")
@@ -237,14 +237,14 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("REQUIREMENTS:\n")
 	prompt.WriteString(fmt.Sprintf("- First line of the commit message MUST be concise and under %d characters\n", c.commitConfig.MaxLength))
 	prompt.WriteString("- Present tense (add, not added)\n")
-	prompt.WriteString("- No explanations or reasoning\n")
+	prompt.WriteString("- No explanations, reasoning, or headings\n")
 	prompt.WriteString("- Output ONLY the commit message\n")
-	prompt.WriteString("- Focus on the most important changes present rather than inconsequential details\n")
+	prompt.WriteString("- Focus on the most important changes present rather than inconsequential details. Be extremely concise.\n")
 	prompt.WriteString("- Start immediately with 'type(scope):'\n")
 	prompt.WriteString("- SCOPE is not a file path/name, but one or two words summarizing the area of code that was changed. If multiple areas are changed, exclude the scope. Scope should be meaningful to a human knowledgeable about the codebase.\n\n")
 	prompt.WriteString("GOOD SCOPE EXAMPLES: auth, parser, config, tests, api client\n")
 	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n")
-	prompt.WriteString("- If you choose to include an extended description, it should be specific and concise. Do not include excess verbiage like 'note:' or 'these changes relate to...'.\n")
+	prompt.WriteString("- If you include an extended description, it must be specific and concise. Do not include excess verbiage like 'note:' or 'these changes relate to...'. Do not prefix it with 'extended description'.\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT README:\n")
