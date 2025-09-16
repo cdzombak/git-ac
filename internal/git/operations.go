@@ -92,7 +92,7 @@ func Commit(message string) error {
 }
 
 func StageAllChanges() error {
-	cmd := exec.Command("git", "add", ".")
+	cmd := exec.Command("git", "add", "-u")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
