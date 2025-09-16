@@ -4,7 +4,9 @@
       "WebSearch",
       "Bash(go:*)",
       "Bash(timeout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Read(//Users/cdzombak/.config/**)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
