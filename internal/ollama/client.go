@@ -91,12 +91,7 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 }
 
 func (c *Client) isDiffTooLarge(diff string) bool {
-	// Use configurable threshold
-	maxDirectDiffSize := c.commitConfig.LargeDiffThreshold
-	lineCount := strings.Count(diff, "\n")
-	fileCount := strings.Count(diff, "diff --git")
-
-	return len(diff) > maxDirectDiffSize || fileCount > 5 || lineCount > 100
+	return len(diff) > c.commitConfig.LargeDiffThreshold
 }
 
 func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, error) {
@@ -131,7 +126,7 @@ OUTPUT:`, diff)
 			"top_p":       0.8,
 			"num_ctx":     4096,
 			// Remove num_predict limit for thinking models
-			"stop":        []string{"\n\nDIFF:", "\n\nCOMMIT"},
+			"stop": []string{"\n\nDIFF:", "\n\nCOMMIT"},
 		},
 	}
 
@@ -139,28 +134,7 @@ OUTPUT:`, diff)
 }
 
 func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string {
-	var prompt strings.Builder
-
-	prompt.WriteString("Generate a Git commit message in conventional commit format.\n\n")
-	prompt.WriteString("FORMAT: type(scope): description\n")
-	prompt.WriteString("TYPES: feat, fix, refactor, docs, style, test, chore\n\n")
-
-	if readme != "" {
-		prompt.WriteString("PROJECT CONTEXT:\n")
-		readmeLines := strings.Split(readme, "\n")
-		if len(readmeLines) > 20 {
-			readmeLines = readmeLines[:20]
-			readme = strings.Join(readmeLines, "\n") + "\n... (truncated)"
-		}
-		prompt.WriteString(readme)
-		prompt.WriteString("\n\n")
-	}
-
-	prompt.WriteString("FILE CHANGES SUMMARY:\n")
-	prompt.WriteString(summaries)
-	prompt.WriteString("\n\nCOMMIT MESSAGE:")
-
-	return prompt.String()
+	return c.buildPromptInternal(summaries, readme, true)
 }
 
 func (c *Client) generateFromPrompt(prompt string) (string, error) {
@@ -225,9 +199,13 @@ func (c *Client) generateFromRequest(req *api.GenerateRequest) (string, error) {
 }
 
 func (c *Client) buildPrompt(diff, readme string) string {
+	return c.buildPromptInternal(diff, readme, false)
+}
+
+func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are a Git commit message generator. Analyze the diff and output ONLY a conventional commit message.\n\n")
+	prompt.WriteString("You are a Git commit message generator. Analyze the changes and output ONLY a conventional commit message.\n\n")
 
 	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\n")
 
@@ -250,6 +228,7 @@ func (c *Client) buildPrompt(diff, readme string) string {
 	prompt.WriteString("- Subject under 72 characters\n")
 	prompt.WriteString("- Present tense (add, not added)\n")
 	prompt.WriteString("- No explanations or reasoning\n")
+	prompt.WriteString("- Output ONLY the commit message\n")
 	prompt.WriteString("- Start immediately with type(scope):\n\n")
 
 	if readme != "" {
@@ -264,9 +243,13 @@ func (c *Client) buildPrompt(diff, readme string) string {
 		prompt.WriteString("\n\n")
 	}
 
-	prompt.WriteString("STAGED CHANGES:\n")
-	prompt.WriteString(diff)
-	prompt.WriteString("\n\nThink about the changes and generate a conventional commit message.\n\nCommit message:")
+	if isFileSummary {
+		prompt.WriteString("FILE CHANGES SUMMARY:\n")
+	} else {
+		prompt.WriteString("STAGED CHANGES:\n")
+	}
+	prompt.WriteString(content)
+	prompt.WriteString("\n\nCommit message:")
 
 	return prompt.String()
 }
@@ -283,6 +266,15 @@ func (c *Client) cleanCommitMessage(message string) string {
 		}
 	}
 
+	// Look for commit message in backticks
+	if strings.Contains(cleaned, "`") && strings.Count(cleaned, "`") >= 2 {
+		start := strings.Index(cleaned, "`")
+		end := strings.LastIndex(cleaned, "`")
+		if start != end && start >= 0 && end > start {
+			cleaned = strings.TrimSpace(cleaned[start+1 : end])
+		}
+	}
+
 	// Remove everything after common stopping phrases, but only if they appear after some content
 	stopPhrases := []string{
 		"We are generating",
@@ -293,10 +285,14 @@ func (c *Client) cleanCommitMessage(message string) string {
 		"Summary:",
 		"Changes:",
 		"Analysis:",
+		"This commit message follows",
+		"Note: If you'd like",
+		"Here is a conventional",
+		"The commit message",
 	}
 
 	for _, phrase := range stopPhrases {
-		if idx := strings.Index(cleaned, phrase); idx > 20 { // Only cut if there's substantial content before
+		if idx := strings.Index(cleaned, phrase); idx > 10 { // Only cut if there's some content before
 			cleaned = strings.TrimSpace(cleaned[:idx])
 		}
 	}
