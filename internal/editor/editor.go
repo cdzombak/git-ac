@@ -30,8 +30,15 @@ func Edit(initialContent string) (string, error) {
 		return "", fmt.Errorf("failed to close temporary file: %w", err)
 	}
 
-	// Launch editor
-	cmd := exec.Command(editor, tmpFile.Name())
+	// Parse editor command and arguments
+	editorParts := strings.Fields(editor)
+	if len(editorParts) == 0 {
+		return "", fmt.Errorf("empty editor command")
+	}
+
+	// Build command with arguments and add the temp file at the end
+	args := append(editorParts[1:], tmpFile.Name())
+	cmd := exec.Command(editorParts[0], args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

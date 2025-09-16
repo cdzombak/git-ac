@@ -44,7 +44,7 @@ func Load() (*Config, error) {
 		Commit: CommitConfig{
 			MaxLength:          72,
 			IncludeBody:        true,
-			LargeDiffThreshold: 2000,
+			LargeDiffThreshold: 8000,
 		},
 	}
 

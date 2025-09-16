@@ -114,15 +114,13 @@ func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, err
 }
 
 func (c *Client) summarizeFileChanges(diff string) (string, error) {
-	prompt := fmt.Sprintf(`Analyze this git diff and summarize the changes for each file in 1-2 lines each.
-
-FORMAT:
-- filename: brief description of changes
+	prompt := fmt.Sprintf(`List file changes in this format:
+- filename: brief description
 
 DIFF:
 %s
 
-SUMMARIES:`, diff)
+OUTPUT:`, diff)
 
 	req := &api.GenerateRequest{
 		Model:  c.config.Model,
@@ -132,7 +130,7 @@ SUMMARIES:`, diff)
 			"temperature": 0.3, // Lower temperature for more focused analysis
 			"top_p":       0.8,
 			"num_ctx":     4096,
-			"num_predict": 300, // More tokens for summaries
+			// Remove num_predict limit for thinking models
 			"stop":        []string{"\n\nDIFF:", "\n\nCOMMIT"},
 		},
 	}
@@ -166,20 +164,7 @@ func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string
 }
 
 func (c *Client) generateFromPrompt(prompt string) (string, error) {
-	// Adjust parameters based on config
-	var stopTokens []string
-	var maxTokens int
-
-	if c.commitConfig.IncludeBody {
-		// Allow multi-line commits, more tokens for body
-		stopTokens = []string{"```", "---"} // Stop at code blocks or section dividers
-		maxTokens = 200
-	} else {
-		// Single line commits only
-		stopTokens = []string{"\n\n", "\n"}
-		maxTokens = 100
-	}
-
+	// Remove strict limits for thinking models
 	req := &api.GenerateRequest{
 		Model:  c.config.Model,
 		Prompt: prompt,
@@ -188,8 +173,7 @@ func (c *Client) generateFromPrompt(prompt string) (string, error) {
 			"temperature": 0.7,
 			"top_p":       0.9,
 			"num_ctx":     4096,
-			"num_predict": maxTokens,
-			"stop":        stopTokens,
+			// Remove num_predict limit to allow thinking models to work
 		},
 	}
 
@@ -226,46 +210,47 @@ func (c *Client) generateFromRequest(req *api.GenerateRequest) (string, error) {
 		return "", fmt.Errorf("received empty response from Ollama")
 	}
 
+	fmt.Printf("Raw response: %q\n", message)
+
 	// Clean up the message
-	message = c.cleanCommitMessage(message)
-	return message, nil
+	cleanedMessage := c.cleanCommitMessage(message)
+
+	fmt.Printf("Cleaned message: %q\n", cleanedMessage)
+
+	if cleanedMessage == "" {
+		return "", fmt.Errorf("commit message became empty after cleaning - raw response was: %q", message)
+	}
+
+	return cleanedMessage, nil
 }
 
 func (c *Client) buildPrompt(diff, readme string) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("Generate a Git commit message in conventional commit format.\n\n")
+	prompt.WriteString("You are a Git commit message generator. Analyze the diff and output ONLY a conventional commit message.\n\n")
 
-	prompt.WriteString("FORMAT: type(scope): description\n")
-	if c.commitConfig.IncludeBody {
-		prompt.WriteString("Include a body if needed for complex changes.\n")
-		prompt.WriteString("Separate subject and body with a blank line.\n")
-	}
-	prompt.WriteString("TYPES: feat, fix, refactor, docs, style, test, chore\n")
+	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\n")
 
-	if c.commitConfig.IncludeBody {
-		prompt.WriteString("EXAMPLES:\n")
-		prompt.WriteString("feat(auth): add JWT token validation\n\n")
-		prompt.WriteString("Implement middleware for validating JWT tokens\nAdd error handling for expired tokens\n\n")
-		prompt.WriteString("OR for simple changes:\n")
-		prompt.WriteString("fix(parser): handle empty input strings\n\n")
-	} else {
-		prompt.WriteString("EXAMPLES:\n")
-		prompt.WriteString("- feat(auth): add JWT token validation\n")
-		prompt.WriteString("- fix(parser): handle empty input strings\n")
-		prompt.WriteString("- refactor(client): improve error handling\n")
-		prompt.WriteString("- docs: update installation instructions\n\n")
-	}
+	prompt.WriteString("VALID TYPES:\n")
+	prompt.WriteString("feat - new feature\n")
+	prompt.WriteString("fix - bug fix\n")
+	prompt.WriteString("refactor - code refactoring\n")
+	prompt.WriteString("docs - documentation\n")
+	prompt.WriteString("style - formatting\n")
+	prompt.WriteString("test - testing\n")
+	prompt.WriteString("chore - maintenance\n\n")
 
-	prompt.WriteString("RULES:\n")
-	prompt.WriteString("- Subject line under 72 characters\n")
-	prompt.WriteString("- Use present tense\n")
-	prompt.WriteString("- Be specific but concise\n")
-	if c.commitConfig.IncludeBody {
-		prompt.WriteString("- Add body for complex changes\n")
-		prompt.WriteString("- Wrap body lines at 72 characters\n")
-	}
-	prompt.WriteString("- Output ONLY the commit message\n\n")
+	prompt.WriteString("GOOD EXAMPLES:\n")
+	prompt.WriteString("feat(auth): add JWT token validation\n")
+	prompt.WriteString("fix(parser): handle empty input strings\n")
+	prompt.WriteString("refactor(config): simplify YAML loading\n")
+	prompt.WriteString("docs: update installation guide\n\n")
+
+	prompt.WriteString("REQUIREMENTS:\n")
+	prompt.WriteString("- Subject under 72 characters\n")
+	prompt.WriteString("- Present tense (add, not added)\n")
+	prompt.WriteString("- No explanations or reasoning\n")
+	prompt.WriteString("- Start immediately with type(scope):\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT CONTEXT:\n")
@@ -281,37 +266,62 @@ func (c *Client) buildPrompt(diff, readme string) string {
 
 	prompt.WriteString("STAGED CHANGES:\n")
 	prompt.WriteString(diff)
-	prompt.WriteString("\n\n")
-
-	prompt.WriteString("COMMIT MESSAGE:")
+	prompt.WriteString("\n\nThink about the changes and generate a conventional commit message.\n\nCommit message:")
 
 	return prompt.String()
 }
 
 func (c *Client) cleanCommitMessage(message string) string {
-	// Remove common prefixes that might be added by the model
+	cleaned := strings.TrimSpace(message)
+
+	// For thinking models, look for the actual answer after </think>
+	if strings.Contains(cleaned, "</think>") {
+		parts := strings.Split(cleaned, "</think>")
+		if len(parts) > 1 {
+			// Take everything after the last </think>
+			cleaned = strings.TrimSpace(parts[len(parts)-1])
+		}
+	}
+
+	// Remove everything after common stopping phrases, but only if they appear after some content
+	stopPhrases := []string{
+		"We are generating",
+		"We have the following",
+		"The purpose of this",
+		"This change",
+		"The changes include",
+		"Summary:",
+		"Changes:",
+		"Analysis:",
+	}
+
+	for _, phrase := range stopPhrases {
+		if idx := strings.Index(cleaned, phrase); idx > 20 { // Only cut if there's substantial content before
+			cleaned = strings.TrimSpace(cleaned[:idx])
+		}
+	}
+
+	// Remove common prefixes
 	prefixes := []string{
 		"commit message:",
 		"commit:",
 		"message:",
 		"git commit:",
+		"output:",
 		"```",
 	}
 
-	// Remove thinking tags and content
+	// Remove thinking patterns
 	thinkingPatterns := []string{
 		"<think>",
 		"</think>",
 	}
 
-	cleaned := strings.TrimSpace(message)
-
-	// Remove thinking patterns
 	for _, pattern := range thinkingPatterns {
 		cleaned = strings.ReplaceAll(cleaned, pattern, "")
 	}
 
-	// Remove text between <think> tags if any remain
+	// Remove text between <think> tags
 	for strings.Contains(cleaned, "<think>") && strings.Contains(cleaned, "</think>") {
 		start := strings.Index(cleaned, "<think>")
 		end := strings.Index(cleaned, "</think>") + len("</think>")
@@ -325,6 +335,7 @@ func (c *Client) cleanCommitMessage(message string) string {
 	cleaned = strings.TrimSpace(cleaned)
 	lowerCleaned := strings.ToLower(cleaned)
 
+	// Remove prefixes
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(lowerCleaned, prefix) {
 			cleaned = strings.TrimSpace(cleaned[len(prefix):])
@@ -332,9 +343,41 @@ func (c *Client) cleanCommitMessage(message string) string {
 		}
 	}
 
-	// Remove trailing ```
+	// Remove trailing artifacts
 	cleaned = strings.TrimSuffix(cleaned, "```")
 	cleaned = strings.TrimSpace(cleaned)
+
+	// If the message doesn't start with a valid type, try to find the first line that does
+	validTypes := []string{"feat", "fix", "refactor", "docs", "style", "test", "chore"}
+	lines := strings.Split(cleaned, "\n")
+
+	// Check if we already have a valid start
+	firstLine := strings.TrimSpace(lines[0])
+	hasValidStart := false
+	for _, typ := range validTypes {
+		if strings.HasPrefix(firstLine, typ+"(") || strings.HasPrefix(firstLine, typ+":") {
+			hasValidStart = true
+			break
+		}
+	}
+
+	// Only search for valid lines if the first line isn't already valid
+	if !hasValidStart {
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			for _, typ := range validTypes {
+				if strings.HasPrefix(line, typ+"(") || strings.HasPrefix(line, typ+":") {
+					// Found a valid commit message line, use this as starting point
+					if idx := strings.Index(cleaned, line); idx >= 0 {
+						cleaned = cleaned[idx:]
+					}
+					goto processMultiLine
+				}
+			}
+		}
+	}
+
+processMultiLine:
 
 	// Handle multi-line commits based on config
 	if !c.commitConfig.IncludeBody {

@@ -65,6 +65,18 @@ func Commit(message string) error {
 	return nil
 }
 
+func StageAllChanges() error {
+	cmd := exec.Command("git", "add", ".")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git add failed: %w", err)
+	}
+
+	return nil
+}
+
 func GetRepositoryRoot() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	output, err := cmd.Output()

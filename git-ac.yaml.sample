@@ -30,8 +30,8 @@ commit:
 
   # Character threshold for using two-stage diff analysis
   # Large diffs are summarized first, then turned into commit messages
-  # Default: 2000
-  large_diff_threshold: 2000
+  # Default: 8000
+  large_diff_threshold: 8000
 
 # Example configurations for different models:
 #

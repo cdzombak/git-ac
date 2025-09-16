@@ -13,6 +13,7 @@ import (
 
 var (
 	editFlag = flag.Bool("e", false, "Edit the generated commit message in $EDITOR before committing")
+	allFlag  = flag.Bool("a", false, "Stage all changed files before generating commit message")
 	helpFlag = flag.Bool("h", false, "Show help")
 )
 
@@ -41,6 +42,13 @@ func run() error {
 		return fmt.Errorf("not in a git repository: %w", err)
 	}
 
+	// Stage all changes if -a flag is provided
+	if *allFlag {
+		if err := git.StageAllChanges(); err != nil {
+			return fmt.Errorf("failed to stage all changes: %w", err)
+		}
+	}
+
 	// Check for staged changes
 	diff, err := git.GetStagedDiff()
 	if err != nil {
@@ -48,7 +56,10 @@ func run() error {
 	}
 
 	if diff == "" {
-		return fmt.Errorf("no staged changes found")
+		if *allFlag {
+			return fmt.Errorf("no changes to stage")
+		}
+		return fmt.Errorf("no staged changes found (use -a to stage all changes)")
 	}
 
 	// Get README.md content for context (if it exists)
@@ -86,6 +97,7 @@ func showHelp() {
 	fmt.Println("  git-ac [flags]")
 	fmt.Println()
 	fmt.Println("FLAGS:")
+	fmt.Println("  -a    Stage all changed files before generating commit message")
 	fmt.Println("  -e    Edit the generated commit message in $EDITOR before committing")
 	fmt.Println("  -h    Show this help message")
 	fmt.Println()
