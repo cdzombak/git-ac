@@ -109,8 +109,7 @@ func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, err
 }
 
 func (c *Client) summarizeFileChanges(diff string) (string, error) {
-	prompt := fmt.Sprintf(`List file changes in this format:
-- filename: brief description
+	prompt := fmt.Sprintf(`Summarize the changes in the following diff in several sentences. Pay attention to detail. The result should be a summary that is meaningful to a human knowledgeable about the codebase.
 
 DIFF:
 %s
@@ -236,7 +235,7 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n\n")
 
 	if readme != "" {
-		prompt.WriteString("PROJECT CONTEXT:\n")
+		prompt.WriteString("PROJECT README:\n")
 		// Limit README content to avoid token limits
 		readmeLines := strings.Split(readme, "\n")
 		if len(readmeLines) > 20 {
@@ -248,9 +247,9 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	}
 
 	if isFileSummary {
-		prompt.WriteString("FILE CHANGES SUMMARY:\n")
+		prompt.WriteString("FILE CHANGES SUMMARIZED:\n")
 	} else {
-		prompt.WriteString("STAGED CHANGES:\n")
+		prompt.WriteString("STAGED DIFF:\n")
 	}
 	prompt.WriteString(content)
 
