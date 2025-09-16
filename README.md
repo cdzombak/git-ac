@@ -59,15 +59,6 @@ Pre-built binaries for Linux and macOS on various architectures are downloadable
 go install github.com/cdzombak/git-ac@latest
 ```
 
-### From Source
-
-```bash
-git clone https://github.com/cdzombak/git-ac
-cd git-ac
-go build -o git-ac
-sudo mv git-ac /usr/local/bin/
-```
-
 ### Provider Setup
 
 **For Ollama (local/private):**
@@ -175,4 +166,4 @@ chore(deps): update dependencies
 
 ## License
 
-MIT License
+GNU GPL v3
