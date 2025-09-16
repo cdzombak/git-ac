@@ -104,14 +104,12 @@ func (c *Client) isDiffTooLarge(diff string) bool {
 
 func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, error) {
 	// Stage 1: Summarize changes per file
-	fmt.Print("Stage 1: Analyzing file changes")
 	fileSummaries, err := c.summarizeFileChanges(diff)
 	if err != nil {
 		return "", fmt.Errorf("failed to summarize file changes: %w", err)
 	}
 
 	// Stage 2: Generate commit message from summaries
-	fmt.Print("Stage 2: Generating commit message")
 	prompt := c.buildCommitPromptFromSummaries(fileSummaries, readme)
 	return c.generateFromPrompt(prompt)
 }
@@ -168,15 +166,11 @@ func (c *Client) generateFromRequest(req *api.GenerateRequest) (string, error) {
 	defer cancel()
 
 	var fullResponse strings.Builder
-	fmt.Print(".")
 
 	err := c.client.Generate(ctx, req, func(response api.GenerateResponse) error {
-		fmt.Print(".")
 		fullResponse.WriteString(response.Response)
 		return nil
 	})
-
-	fmt.Println() // New line after dots
 
 	if err != nil {
 		if strings.Contains(err.Error(), "context deadline exceeded") {
@@ -193,12 +187,8 @@ func (c *Client) generateFromRequest(req *api.GenerateRequest) (string, error) {
 		return "", fmt.Errorf("received empty response from Ollama")
 	}
 
-	fmt.Printf("Raw response: %q\n", message)
-
 	// Clean up the message
 	cleanedMessage := c.cleanCommitMessage(message)
-
-	fmt.Printf("Cleaned message: %q\n", cleanedMessage)
 
 	if cleanedMessage == "" {
 		return "", fmt.Errorf("commit message became empty after cleaning - raw response was: %q", message)
