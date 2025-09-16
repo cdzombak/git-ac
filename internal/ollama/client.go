@@ -75,26 +75,116 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 	}
 
 	fmt.Printf("Generating commit message using model '%s' (timeout: %v)...\n", c.config.Model, c.config.Timeout)
+
+	// Check if diff is too large for direct processing
+	if c.isDiffTooLarge(diff) {
+		fmt.Println("Large diff detected, using two-stage approach...")
+		return c.generateCommitMessageTwoStage(diff, readme)
+	}
+
+	// Direct approach for smaller diffs
 	prompt := c.buildPrompt(diff, readme)
+	return c.generateFromPrompt(prompt)
+}
+
+func (c *Client) isDiffTooLarge(diff string) bool {
+	// Consider a diff "large" if it's over 2000 characters or has many files
+	const maxDirectDiffSize = 2000
+	lineCount := strings.Count(diff, "\n")
+	fileCount := strings.Count(diff, "diff --git")
+
+	return len(diff) > maxDirectDiffSize || fileCount > 5 || lineCount > 100
+}
+
+func (c *Client) generateCommitMessageTwoStage(diff, readme string) (string, error) {
+	// Stage 1: Summarize changes per file
+	fmt.Print("Stage 1: Analyzing file changes")
+	fileSummaries, err := c.summarizeFileChanges(diff)
+	if err != nil {
+		return "", fmt.Errorf("failed to summarize file changes: %w", err)
+	}
+
+	// Stage 2: Generate commit message from summaries
+	fmt.Print("Stage 2: Generating commit message")
+	prompt := c.buildCommitPromptFromSummaries(fileSummaries, readme)
+	return c.generateFromPrompt(prompt)
+}
+
+func (c *Client) summarizeFileChanges(diff string) (string, error) {
+	prompt := fmt.Sprintf(`Analyze this git diff and summarize the changes for each file in 1-2 lines each.
+
+FORMAT:
+- filename: brief description of changes
+
+DIFF:
+%s
+
+SUMMARIES:`, diff)
 
 	req := &api.GenerateRequest{
 		Model:  c.config.Model,
 		Prompt: prompt,
-		Stream: new(bool), // false
+		Stream: new(bool),
 		Options: map[string]interface{}{
-			"temperature":   0.7,
-			"top_p":         0.9,
-			"num_ctx":       2048,  // Context window size
-			"num_predict":   100,   // Max tokens to generate (commit messages should be short)
-			"stop":          []string{"\n\n", "```", "<think>"}, // Stop at double newlines, code blocks, or thinking
+			"temperature": 0.3, // Lower temperature for more focused analysis
+			"top_p":       0.8,
+			"num_ctx":     4096,
+			"num_predict": 300, // More tokens for summaries
+			"stop":        []string{"\n\nDIFF:", "\n\nCOMMIT"},
 		},
 	}
 
+	return c.generateFromRequest(req)
+}
+
+func (c *Client) buildCommitPromptFromSummaries(summaries, readme string) string {
+	var prompt strings.Builder
+
+	prompt.WriteString("Generate a Git commit message in conventional commit format.\n\n")
+	prompt.WriteString("FORMAT: type(scope): description\n")
+	prompt.WriteString("TYPES: feat, fix, refactor, docs, style, test, chore\n\n")
+
+	if readme != "" {
+		prompt.WriteString("PROJECT CONTEXT:\n")
+		readmeLines := strings.Split(readme, "\n")
+		if len(readmeLines) > 10 {
+			readmeLines = readmeLines[:10]
+			readme = strings.Join(readmeLines, "\n") + "\n... (truncated)"
+		}
+		prompt.WriteString(readme)
+		prompt.WriteString("\n\n")
+	}
+
+	prompt.WriteString("FILE CHANGES SUMMARY:\n")
+	prompt.WriteString(summaries)
+	prompt.WriteString("\n\nCOMMIT MESSAGE:")
+
+	return prompt.String()
+}
+
+func (c *Client) generateFromPrompt(prompt string) (string, error) {
+	req := &api.GenerateRequest{
+		Model:  c.config.Model,
+		Prompt: prompt,
+		Stream: new(bool),
+		Options: map[string]interface{}{
+			"temperature": 0.7,
+			"top_p":       0.9,
+			"num_ctx":     4096,
+			"num_predict": 100,
+			"stop":        []string{"\n\n"},
+		},
+	}
+
+	return c.generateFromRequest(req)
+}
+
+func (c *Client) generateFromRequest(req *api.GenerateRequest) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
 	defer cancel()
 
 	var fullResponse strings.Builder
-	fmt.Print("Waiting for response")
+	fmt.Print(".")
 
 	err := c.client.Generate(ctx, req, func(response api.GenerateResponse) error {
 		fmt.Print(".")
@@ -105,7 +195,6 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 	fmt.Println() // New line after dots
 
 	if err != nil {
-		// Provide more helpful error messages
 		if strings.Contains(err.Error(), "context deadline exceeded") {
 			return "", fmt.Errorf("request timed out after %v - try increasing timeout in config or check if model '%s' is available", c.config.Timeout, c.config.Model)
 		}
@@ -122,23 +211,27 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 
 	// Clean up the message
 	message = c.cleanCommitMessage(message)
-
 	return message, nil
 }
 
 func (c *Client) buildPrompt(diff, readme string) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are an expert Git commit message generator. ")
-	prompt.WriteString("Generate a clear, concise commit message based on the following staged changes.\n\n")
+	prompt.WriteString("Generate a Git commit message in conventional commit format.\n\n")
 
-	prompt.WriteString("REQUIREMENTS:\n")
-	prompt.WriteString("- Use conventional commit format (type(scope): description)\n")
-	prompt.WriteString("- Keep the subject line under 72 characters\n")
-	prompt.WriteString("- Use present tense (\"add\" not \"added\")\n")
-	prompt.WriteString("- Be specific about what changed\n")
-	prompt.WriteString("- Do not include diff syntax or file paths in the message\n")
-	prompt.WriteString("- Output ONLY the commit message, no thinking or explanation\n\n")
+	prompt.WriteString("FORMAT: type(scope): description\n")
+	prompt.WriteString("TYPES: feat, fix, refactor, docs, style, test, chore\n")
+	prompt.WriteString("EXAMPLES:\n")
+	prompt.WriteString("- feat(auth): add JWT token validation\n")
+	prompt.WriteString("- fix(parser): handle empty input strings\n")
+	prompt.WriteString("- refactor(client): improve error handling\n")
+	prompt.WriteString("- docs: update installation instructions\n\n")
+
+	prompt.WriteString("RULES:\n")
+	prompt.WriteString("- Under 72 characters\n")
+	prompt.WriteString("- Use present tense\n")
+	prompt.WriteString("- Be specific but concise\n")
+	prompt.WriteString("- Output ONLY the commit message\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT CONTEXT:\n")
