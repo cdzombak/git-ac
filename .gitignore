@@ -25,3 +25,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Build output directory
+out/

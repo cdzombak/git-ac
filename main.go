@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"git-ac/internal/config"
 	"git-ac/internal/git"
@@ -11,10 +12,13 @@ import (
 	"git-ac/internal/editor"
 )
 
+var version = "<dev>"
+
 var (
-	editFlag = flag.Bool("e", false, "Edit the generated commit message in $EDITOR before committing")
-	allFlag  = flag.Bool("a", false, "Stage modified files before generating commit message")
-	helpFlag = flag.Bool("h", false, "Show help")
+	editFlag    = flag.Bool("e", false, "Edit the generated commit message in $EDITOR before committing")
+	allFlag     = flag.Bool("a", false, "Stage modified files before generating commit message")
+	helpFlag    = flag.Bool("h", false, "Show help")
+	versionFlag = flag.Bool("version", false, "Show version")
 )
 
 func main() {
@@ -23,6 +27,11 @@ func main() {
 	if *helpFlag {
 		showHelp()
 		return
+	}
+
+	if *versionFlag {
+		fmt.Println(version)
+		os.Exit(0)
 	}
 
 	if err := run(); err != nil {
