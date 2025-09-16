@@ -82,8 +82,11 @@ func (c *Client) GenerateCommitMessage(diff, readme string) (string, error) {
 		Prompt: prompt,
 		Stream: new(bool), // false
 		Options: map[string]interface{}{
-			"temperature": 0.7,
-			"top_p":       0.9,
+			"temperature":   0.7,
+			"top_p":         0.9,
+			"num_ctx":       2048,  // Context window size
+			"num_predict":   100,   // Max tokens to generate (commit messages should be short)
+			"stop":          []string{"\n\n", "```", "<think>"}, // Stop at double newlines, code blocks, or thinking
 		},
 	}
 
@@ -134,7 +137,8 @@ func (c *Client) buildPrompt(diff, readme string) string {
 	prompt.WriteString("- Keep the subject line under 72 characters\n")
 	prompt.WriteString("- Use present tense (\"add\" not \"added\")\n")
 	prompt.WriteString("- Be specific about what changed\n")
-	prompt.WriteString("- Do not include diff syntax or file paths in the message\n\n")
+	prompt.WriteString("- Do not include diff syntax or file paths in the message\n")
+	prompt.WriteString("- Output ONLY the commit message, no thinking or explanation\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT CONTEXT:\n")
@@ -152,7 +156,7 @@ func (c *Client) buildPrompt(diff, readme string) string {
 	prompt.WriteString(diff)
 	prompt.WriteString("\n\n")
 
-	prompt.WriteString("Generate only the commit message, no explanations or additional text:")
+	prompt.WriteString("COMMIT MESSAGE:")
 
 	return prompt.String()
 }
@@ -167,7 +171,31 @@ func (c *Client) cleanCommitMessage(message string) string {
 		"```",
 	}
 
+	// Remove thinking tags and content
+	thinkingPatterns := []string{
+		"<think>",
+		"</think>",
+	}
+
 	cleaned := strings.TrimSpace(message)
+
+	// Remove thinking patterns
+	for _, pattern := range thinkingPatterns {
+		cleaned = strings.ReplaceAll(cleaned, pattern, "")
+	}
+
+	// Remove text between <think> tags if any remain
+	for strings.Contains(cleaned, "<think>") && strings.Contains(cleaned, "</think>") {
+		start := strings.Index(cleaned, "<think>")
+		end := strings.Index(cleaned, "</think>") + len("</think>")
+		if start >= 0 && end > start {
+			cleaned = cleaned[:start] + cleaned[end:]
+		} else {
+			break
+		}
+	}
+
+	cleaned = strings.TrimSpace(cleaned)
 	lowerCleaned := strings.ToLower(cleaned)
 
 	for _, prefix := range prefixes {
@@ -181,8 +209,11 @@ func (c *Client) cleanCommitMessage(message string) string {
 	cleaned = strings.TrimSuffix(cleaned, "```")
 	cleaned = strings.TrimSpace(cleaned)
 
-	// Note: MaxLength is handled in the commit config, not here
-	// This could be extended to take commit config if needed
+	// Take only the first line if multiple lines (commit subject should be one line)
+	lines := strings.Split(cleaned, "\n")
+	if len(lines) > 0 {
+		cleaned = strings.TrimSpace(lines[0])
+	}
 
 	return cleaned
 }
