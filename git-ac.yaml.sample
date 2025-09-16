@@ -1,0 +1,49 @@
+# git-ac Configuration File
+# Copy this to ~/.config/git-ac.yaml and customize as needed
+
+# Ollama server configuration
+ollama:
+  # URL of your Ollama server
+  # Default: "http://localhost:11434"
+  host: "http://localhost:11434"
+
+  # Model to use for commit message generation
+  # Make sure this model is available in your Ollama installation
+  # Run: ollama list
+  # Default: "llama2"
+  model: "llama2"
+
+  # Timeout for Ollama requests
+  # Default: 30s
+  timeout: 30s
+
+# Commit message configuration
+commit:
+  # Maximum length for commit subject line
+  # Following conventional commit guidelines
+  # Default: 72
+  max_length: 72
+
+  # Whether to include commit body for longer descriptions
+  # Default: true
+  include_body: true
+
+# Example configurations for different models:
+#
+# For CodeLlama:
+# ollama:
+#   model: "codellama"
+#
+# For Mistral:
+# ollama:
+#   model: "mistral"
+#
+# For custom Ollama server:
+# ollama:
+#   host: "http://your-server:11434"
+#   model: "your-custom-model"
+#
+# For shorter commit messages:
+# commit:
+#   max_length: 50
+#   include_body: false
