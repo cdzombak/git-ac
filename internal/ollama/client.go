@@ -205,9 +205,9 @@ func (c *Client) buildPrompt(diff, readme string) string {
 func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool) string {
 	var prompt strings.Builder
 
-	prompt.WriteString("You are a Git commit message generator. Analyze the changes and output ONLY a conventional commit message.\n\n")
+	prompt.WriteString("You are a Git commit message generator. Analyze the following changes and output ONLY a conventional commit message Your commit message must summarize the most important and significant changes present. You may optionally include an extended description if the changes are large or complex.\n\n")
 
-	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\n")
+	prompt.WriteString("REQUIRED FORMAT:\ntype(scope): description\n\noptional extended description\n\n")
 
 	prompt.WriteString("VALID TYPES:\n")
 	prompt.WriteString("feat - new feature\n")
@@ -218,18 +218,22 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 	prompt.WriteString("test - testing\n")
 	prompt.WriteString("chore - maintenance\n\n")
 
-	prompt.WriteString("GOOD EXAMPLES:\n")
+	prompt.WriteString("GOOD FIRST-LINE EXAMPLES:\n")
 	prompt.WriteString("feat(auth): add JWT token validation\n")
 	prompt.WriteString("fix(parser): handle empty input strings\n")
 	prompt.WriteString("refactor(config): simplify YAML loading\n")
 	prompt.WriteString("docs: update installation guide\n\n")
 
 	prompt.WriteString("REQUIREMENTS:\n")
-	prompt.WriteString("- Subject under 72 characters\n")
+	prompt.WriteString("- First line under 72 characters\n") // TODO(cdzombak): take from config
 	prompt.WriteString("- Present tense (add, not added)\n")
 	prompt.WriteString("- No explanations or reasoning\n")
 	prompt.WriteString("- Output ONLY the commit message\n")
 	prompt.WriteString("- Start immediately with type(scope):\n\n")
+	prompt.WriteString("- SCOPE is not a file path/name, but one or two words summarizing the area of code that was changed. If multiple areas, exclude the scope. Scope should be meaningful to a human knowledgeable about the codebase. Be specific, not generic.\n\n")
+
+	prompt.WriteString("GOOD SCOPE EXAMPLES: auth, parser, config, tests, api client\n")
+	prompt.WriteString("BAD SCOPE EXAMPLES: internal, pkg, deps\n\n")
 
 	if readme != "" {
 		prompt.WriteString("PROJECT CONTEXT:\n")
@@ -249,7 +253,6 @@ func (c *Client) buildPromptInternal(content, readme string, isFileSummary bool)
 		prompt.WriteString("STAGED CHANGES:\n")
 	}
 	prompt.WriteString(content)
-	prompt.WriteString("\n\nCommit message:")
 
 	return prompt.String()
 }
