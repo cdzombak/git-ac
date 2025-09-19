@@ -16,7 +16,7 @@ type Config struct {
 }
 
 type ProviderConfig struct {
-	Type    string        `yaml:"type"`    // "ollama" or "openai"
+	Type    string        `yaml:"type"` // "ollama" or "openai"
 	Timeout time.Duration `yaml:"timeout"`
 
 	// Ollama-specific config

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"git-ac/internal/color"
 	"git-ac/internal/config"
 	"git-ac/internal/llm"
 )
@@ -97,7 +98,7 @@ func (p *OpenAIProvider) HealthCheck() error {
 }
 
 func (p *OpenAIProvider) GenerateCommitMessage(diff, readme string) (string, error) {
-	fmt.Printf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
+	color.FaintPrintf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
 
 	// Check if diff is too large for direct processing
 	if p.isDiffTooLarge(diff) {
@@ -134,10 +135,10 @@ func (p *OpenAIProvider) summarizeFileChanges(diff string) (string, error) {
 		Messages: []ChatMessage{
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens:   4096,                                        // Match Ollama's num_ctx
-		Temperature: 0.3,                                         // Lower temperature for more focused analysis
-		TopP:        0.8,                                         // Match Ollama's top_p
-		Stop:        []string{"\n\nDIFF:", "\n\nCOMMIT"},        // Match Ollama's stop sequences
+		MaxTokens:   4096,                                // Match Ollama's num_ctx
+		Temperature: 0.3,                                 // Lower temperature for more focused analysis
+		TopP:        0.8,                                 // Match Ollama's top_p
+		Stop:        []string{"\n\nDIFF:", "\n\nCOMMIT"}, // Match Ollama's stop sequences
 		Stream:      false,
 	}
 
@@ -243,4 +244,3 @@ func (p *OpenAIProvider) makeRequest(req ChatCompletionRequest) (*ChatCompletion
 func (p *OpenAIProvider) buildPrompt(diff, readme string) string {
 	return llm.BuildCommitPrompt(diff, readme, false, p.commitConfig)
 }
-

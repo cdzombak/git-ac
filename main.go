@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"git-ac/internal/config"
+	"git-ac/internal/editor"
 	"git-ac/internal/git"
 	"git-ac/internal/provider"
-	"git-ac/internal/editor"
 )
 
 var version = "<dev>"

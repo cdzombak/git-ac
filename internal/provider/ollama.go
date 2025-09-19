@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"git-ac/internal/color"
 	"git-ac/internal/config"
 	"git-ac/internal/llm"
 
@@ -80,7 +81,7 @@ func (p *OllamaProvider) GenerateCommitMessage(diff, readme string) (string, err
 		return "", err
 	}
 
-	fmt.Printf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
+	color.FaintPrintf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
 
 	// Check if diff is too large for direct processing
 	if llm.IsDiffTooLarge(diff) {
