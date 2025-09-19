@@ -27,7 +27,7 @@ func isTerminal() bool {
 	}
 
 	// On Windows, we're more conservative and just check for basic cases
-	return fileInfo.Mode().IsRegular() == false
+	return !fileInfo.Mode().IsRegular()
 }
 
 // supportsColor checks if the terminal supports color output
