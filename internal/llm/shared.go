@@ -131,14 +131,14 @@ func CleanCommitMessage(message string, commitConfig config.CommitConfig) string
 				// Add remainder as new line
 				remainder := strings.TrimSpace(subject[spaceIdx:])
 				if remainder != "" {
-					lines = append([]string{lines[0], "…" + remainder}, lines[1:]...)
+					lines = append([]string{lines[0], remainder}, lines[1:]...)
 				}
 			} else {
 				// No good break point, split at character boundary
 				lines[0] = subject[:maxLen] + "…"
 				remainder := subject[maxLen:]
 				if remainder != "" {
-					lines = append([]string{lines[0], "…" + remainder}, lines[1:]...)
+					lines = append([]string{lines[0], remainder}, lines[1:]...)
 				}
 			}
 		}
