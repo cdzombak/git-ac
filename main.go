@@ -54,6 +54,8 @@ func parseFlags(args []string) error {
 				editFlag = true
 			case 'h':
 				helpFlag = true
+			case 'v':
+				versionFlag = true
 			default:
 				return fmt.Errorf("unknown flag: -%c", char)
 			}
@@ -159,6 +161,7 @@ func showHelp() {
 	fmt.Println("  -a    Stage modified files before generating commit message")
 	fmt.Println("  -e    Edit the generated commit message in $EDITOR before committing")
 	fmt.Println("  -h    Show this help message")
+	fmt.Println("  -v    Show version")
 	fmt.Println()
 	fmt.Println("FLAGS may be combined (e.g., -ae is equivalent to -a -e)")
 	fmt.Println()
