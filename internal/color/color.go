@@ -56,7 +56,7 @@ func supportsColor() bool {
 // Faint returns text in a lighter/dimmed color if the terminal supports it
 func Faint(text string) string {
 	if isTerminal() && supportsColor() {
-		return Gray + text + Reset
+		return Dim + text + Reset
 	}
 	return text
 }
