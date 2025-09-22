@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"git-ac/internal/config"
 	"git-ac/internal/editor"
@@ -15,21 +15,69 @@ import (
 var version = "<dev>"
 
 var (
-	editFlag    = flag.Bool("e", false, "Edit the generated commit message in $EDITOR before committing")
-	allFlag     = flag.Bool("a", false, "Stage modified files before generating commit message")
-	helpFlag    = flag.Bool("h", false, "Show help")
-	versionFlag = flag.Bool("version", false, "Show version")
+	editFlag    bool
+	allFlag     bool
+	helpFlag    bool
+	versionFlag bool
 )
 
-func main() {
-	flag.Parse()
+// parseFlags handles custom flag parsing to support combined flags like -ae
+func parseFlags(args []string) error {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 
-	if *helpFlag {
+		if !strings.HasPrefix(arg, "-") {
+			return fmt.Errorf("unexpected argument: %s", arg)
+		}
+
+		// Handle long flags like --version
+		if strings.HasPrefix(arg, "--") {
+			switch arg {
+			case "--version":
+				versionFlag = true
+			case "--help":
+				helpFlag = true
+			default:
+				return fmt.Errorf("unknown flag: %s", arg)
+			}
+			continue
+		}
+
+		// Handle single dash flags (both individual and combined)
+		flagChars := arg[1:] // Remove the leading dash
+
+		for _, char := range flagChars {
+			switch char {
+			case 'a':
+				allFlag = true
+			case 'e':
+				editFlag = true
+			case 'h':
+				helpFlag = true
+			case 'v':
+				versionFlag = true
+			default:
+				return fmt.Errorf("unknown flag: -%c", char)
+			}
+		}
+	}
+	return nil
+}
+
+func main() {
+	// Parse flags manually to support combined flags
+	if err := parseFlags(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Use -h for help\n")
+		os.Exit(1)
+	}
+
+	if helpFlag {
 		showHelp()
 		return
 	}
 
-	if *versionFlag {
+	if versionFlag {
 		fmt.Println(version)
 		os.Exit(0)
 	}
@@ -52,7 +100,7 @@ func run() error {
 	}
 
 	// Stage all changes if -a flag is provided
-	if *allFlag {
+	if allFlag {
 		if err := git.StageAllChanges(); err != nil {
 			return fmt.Errorf("failed to stage all changes: %w", err)
 		}
@@ -65,7 +113,7 @@ func run() error {
 	}
 
 	if diff == "" {
-		if *allFlag {
+		if allFlag {
 			return fmt.Errorf("no changes to stage")
 		}
 		return fmt.Errorf("no staged changes found (use -a to stage modified files)")
@@ -86,7 +134,7 @@ func run() error {
 	}
 
 	// If edit flag is set, open editor
-	if *editFlag {
+	if editFlag {
 		editedMsg, err := editor.Edit(commitMsg)
 		if err != nil {
 			return fmt.Errorf("failed to edit commit message: %w", err)
@@ -113,6 +161,9 @@ func showHelp() {
 	fmt.Println("  -a    Stage modified files before generating commit message")
 	fmt.Println("  -e    Edit the generated commit message in $EDITOR before committing")
 	fmt.Println("  -h    Show this help message")
+	fmt.Println("  -v    Show version")
+	fmt.Println()
+	fmt.Println("FLAGS may be combined (e.g., -ae is equivalent to -a -e)")
 	fmt.Println()
 	fmt.Println("DESCRIPTION:")
 	fmt.Println("  git-ac generates commit messages for staged changes using Ollama.")
