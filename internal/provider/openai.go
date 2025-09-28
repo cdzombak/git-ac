@@ -102,7 +102,6 @@ func (p *OpenAIProvider) GenerateCommitMessage(diff, readme string) (string, err
 
 	// Check if diff is too large for direct processing
 	if p.isDiffTooLarge(diff) {
-		fmt.Println("Large diff detected, using two-stage approach...")
 		return p.generateCommitMessageTwoStage(diff, readme)
 	}
 
@@ -112,7 +111,7 @@ func (p *OpenAIProvider) GenerateCommitMessage(diff, readme string) (string, err
 }
 
 func (p *OpenAIProvider) isDiffTooLarge(diff string) bool {
-	return llm.IsDiffTooLarge(diff)
+	return llm.IsDiffTooLarge(diff, p.commitConfig)
 }
 
 func (p *OpenAIProvider) generateCommitMessageTwoStage(diff, readme string) (string, error) {

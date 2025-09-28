@@ -39,7 +39,8 @@ type OpenAIConfig struct {
 }
 
 type CommitConfig struct {
-	MaxLength int `yaml:"max_length"`
+	MaxLength        int `yaml:"max_length"`
+	DiffTokenLimit   int `yaml:"diff_token_limit"`
 }
 
 func Load() (*Config, error) {
@@ -61,7 +62,8 @@ func Load() (*Config, error) {
 			},
 		},
 		Commit: CommitConfig{
-			MaxLength: 72,
+			MaxLength:      72,
+			DiffTokenLimit: 16384,
 		},
 	}
 
@@ -127,6 +129,15 @@ func (c *Config) validateCommitConfig() error {
 	}
 	if c.Commit.MaxLength > 200 {
 		return fmt.Errorf("max_length is too large (got %d, maximum 200)", c.Commit.MaxLength)
+	}
+	if c.Commit.DiffTokenLimit <= 0 {
+		return fmt.Errorf("diff_token_limit must be positive (got %d)", c.Commit.DiffTokenLimit)
+	}
+	if c.Commit.DiffTokenLimit < 1000 {
+		return fmt.Errorf("diff_token_limit is too small (got %d, minimum 1000)", c.Commit.DiffTokenLimit)
+	}
+	if c.Commit.DiffTokenLimit > 100000 {
+		return fmt.Errorf("diff_token_limit is too large (got %d, maximum 100000)", c.Commit.DiffTokenLimit)
 	}
 	return nil
 }

@@ -8,14 +8,14 @@ import (
 )
 
 // IsDiffTooLarge determines if a diff is too large for direct processing
-func IsDiffTooLarge(diff string) bool {
+func IsDiffTooLarge(diff string, commitConfig config.CommitConfig) bool {
 	// Count words in the diff (split by whitespace)
 	words := strings.Fields(diff)
 	wordCount := len(words)
 
-	// Context window is 4096 tokens, use half as threshold
+	// Use configured token limit, use half as threshold
 	// Rough approximation: 1 word ≈ 1.3 tokens
-	maxWords := (4096 / 2) / 1.3 // ~1575 words
+	maxWords := (commitConfig.DiffTokenLimit / 2) / 1.3
 
 	return wordCount > int(maxWords)
 }

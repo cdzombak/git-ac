@@ -84,8 +84,7 @@ func (p *OllamaProvider) GenerateCommitMessage(diff, readme string) (string, err
 	color.FaintPrintf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
 
 	// Check if diff is too large for direct processing
-	if llm.IsDiffTooLarge(diff) {
-		fmt.Println("Large diff detected, using two-stage approach...")
+	if llm.IsDiffTooLarge(diff, p.commitConfig) {
 		return p.generateCommitMessageTwoStage(diff, readme)
 	}
 
