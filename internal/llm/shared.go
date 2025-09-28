@@ -15,9 +15,9 @@ func IsDiffTooLarge(diff string, commitConfig config.CommitConfig) bool {
 
 	// Use configured token limit, use half as threshold
 	// Rough approximation: 1 word ≈ 1.3 tokens
-	maxWords := (commitConfig.DiffTokenLimit / 2) / 1.3
+	maxWords := int(float64(commitConfig.DiffTokenLimit/2) / 1.3)
 
-	return wordCount > int(maxWords)
+	return wordCount > maxWords
 }
 
 // BuildSummarizePrompt creates the prompt for file change summarization
