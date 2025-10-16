@@ -17,6 +17,7 @@ go.work
 # IDE files
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store
