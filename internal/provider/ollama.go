@@ -81,7 +81,7 @@ func (p *OllamaProvider) GenerateCommitMessage(diff, readme string) (string, err
 		return "", err
 	}
 
-	color.FaintPrintf("Generating commit message using model '%s' (timeout: %v)...\n", p.config.Model, p.timeout)
+	color.FaintPrintf("Generating commit message using model '%s'...\n", p.config.Model)
 
 	// Check if diff is too large for direct processing
 	if llm.IsDiffTooLarge(diff, p.commitConfig) {
